@@ -28,11 +28,11 @@ def check_authors_not_reviewers(session, paper_id, author_ids) -> None:
 
 
 
-def check_session_assignment(session, status, track_id, session_id) -> None:
+def check_session_assignment(session, paper_status, track_id, session_id) -> None:
 
     if session_id is None:
         return
-    if status != "accepted":
+    if paper_status != "accepted":
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail= "Status must be accepted")
     track_conf = session.exec(select(track.conference_id).where(track.track_id == track_id)).first()
     if track_conf is None:
