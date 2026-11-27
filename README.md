@@ -1,10 +1,13 @@
 Hello
 
+
+## Software Version
+
 - Python dependencies are pinned in `requirements.txt`,
 - The frontend declares React and React DOM, Vite , and @vitejs/plugin-react. Use `frontend/package-lock.json` for the resolved frontend dependency versions.
 - Database: PostgreSQL (Supabase)
 
-Configuration and secrets
+## Configuration and secrets
 
 The application reads `DATABASE_URL` from the root `.env` file. For Supabase URLs, the database helper requires SSL. It prefers psycopg2 when installed, otherwise it tries pg8000. `SQL_ECHO` controls SQLAlchemy SQL logging and defaults to true.
 
@@ -25,15 +28,16 @@ Checks declared in the database schema/models include:
 - Review scores are 1–5, recommendations are `accept` or `reject`, and a reviewer can submit at most one review per paper.
 - The Part 1 SQL schema defines a partial unique index allowing at most one corresponding author per paper.
 
+## Explaining files
 `seed.sql` - our seed/data used on Part 1.
 
 `schema.sql` - schema (tables) for our Part 1.
 
-`create_tables` - table creation for Part 2 (uses models that are in `/backend/conference`, `/backend/paper`, `/backend/track`, `/backend/user`)
+`create_tables.py` - table creation for Part 2 (uses models that are in `/backend/conference`, `/backend/paper`, `/backend/track`, `/backend/user`)
 
-`remove_tables` - table removal for Part 2
+`remove_tables.py` - table removal for Part 2
 
-If there are some troubles or you want to go back you can `remove_tables` and then `create_tables`.
+If there are some troubles or you want to go back you can `remove_tables.py` and then `create_tables.py`.
 
 Every code for Task 2 are in `/task2`
 
@@ -46,22 +50,12 @@ Explaining everything in `/task2`
 - `derived_attr.py` - runs the query with a derived attribute that is specified in (Task 2, 7)
 - `view.py` - runs the view operation that is specified in (Task 2, 8)
 
-To run them use:
-- For Mac `PYTHONPATH=. python task2/(python file name)`
-    Example:
-    `PYTHONPATH=. python task2/populating.py`
-- For Windows `$env:PYTHONPATH="."; python task2\<python_file_name>.py`
-
-The website for Task 3 is https://database-341.onrender.com
-
-Task 3 backend part is in `/backend` where each subdirectory has routers, models, schemas.
-`router.py`'s include general functions
-`schemas.py`'s include I/O to/from the database
-`models`'s include general tables of the schema.
-
 ## Running the course queries
 
 The task scripts use the Part 2 SQLModel schema and configured database. From the project root, activate the virtual environment if available and install dependencies if needed:
+```
+python -m venv venv
+```
 
 ```
 source venv/bin/activate
@@ -78,3 +72,9 @@ PYTHONPATH=. python task2/populating.py
 PYTHONPATH=. python task2/updating.py
 PYTHONPATH=. python task2/deleting.py
 ```
+
+
+Task 3 backend part is in `/backend` where each subdirectory has routers, models, schemas.
+`router.py`'s include general functions
+`schemas.py`'s include I/O to/from the database
+`models`'s include general tables of the schema.
