@@ -2,9 +2,13 @@ Hello
 
 
 `seed.sql` - our seed/data used on Part 1.
+
 `schema.sql` - schema (tables) for our Part 1.
+
 `create_tables` - table creation for Part 2 (uses models that are in `/backend/conference`, `/backend/paper`, `/backend/track`, `/backend/user`)
+
 `remove_tables` - table removal for Part 2
+
 If there are some troubles or you want to go back you can `remove_tables` and then `create_tables`.
 
 Every code for Task 2 are in `/task2`
