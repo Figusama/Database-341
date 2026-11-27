@@ -17,8 +17,10 @@ with engine.connect() as conn:
     after = conn.execute(
         update(app_user).where(app_user.email == EMAIL).values(phone_number='+77773414141').returning(app_user)
     ).first()
+    print("\n7")
     print("BEFORE:", before)
     print("AFTER:", after)
+    print("\n7")
     # 3.2
 
     before = conn.execute(
@@ -27,8 +29,9 @@ with engine.connect() as conn:
     after = conn.execute(
         update(conference).values(review_deadline=conference.review_deadline + case((conference.city == CITY, timedelta(days=7)), else_=timedelta(days=3) )).returning(conference)
     ).all()
-
+    print("\n7")
     print("BEFORE:", before)
     print("AFTER:", after)
-
+    print("\n7")
+    
     conn.rollback()

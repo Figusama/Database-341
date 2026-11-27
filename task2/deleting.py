@@ -19,9 +19,10 @@ with engine.connect() as conn:
     after = conn.execute(
         delete(paper).where(paper.paper_id.in_(target_1)).returning(paper)
     ).all()
-
+    print("\n7")
     print("BEFORE:", before)
     print("AFTER:", after)
+    print("\n7")
     #4.2
     before = conn.execute(
         select(conference_session)
@@ -31,9 +32,10 @@ with engine.connect() as conn:
         conference_session.conference_id.in_( select(conference.conference_id).where(conference.city == 'Astana') ),
         ~exists().where(paper.session_id == conference_session.session_id)).returning(conference_session)
         ).all()
-
+    print("\n7")
     print("BEFORE:", before)
     print("AFTER:", after)
+    print("\n7")
 
 conn.rollback()
    

@@ -1,5 +1,29 @@
 Hello
 
+- Python dependencies are pinned in `requirements.txt`,
+- The frontend declares React and React DOM, Vite , and @vitejs/plugin-react. Use `frontend/package-lock.json` for the resolved frontend dependency versions.
+- Database: PostgreSQL (Supabase)
+
+Configuration and secrets
+
+The application reads `DATABASE_URL` from the root `.env` file. For Supabase URLs, the database helper requires SSL. It prefers psycopg2 when installed, otherwise it tries pg8000. `SQL_ECHO` controls SQLAlchemy SQL logging and defaults to true.
+
+Create a local `.env` with your own database connection string; do not commit credentials. The included `.env` contains credentials and should be treated as private. If those credentials have been shared unintentionally, rotate them with the database provider.
+
+in `.env` include DATABASE_URL
+`DATABASE_URL=secret_url`
+
+Checks declared in the database schema/models include:
+
+- Required columns are NOT NULL, subject to explicitly optional fields such as ORCID, session assignment, change note, and confidential review comments.
+- User email is unique.
+- Conference end date cannot precede its start date.
+- Session end time must be later than start time.
+- Reviewer experience cannot be negative.
+- Paper status is one of `submitted`, `under review`, `accepted`, `rejected`, or `withdrawn`.
+- Author position and paper version number must be positive; author positions must be unique within a paper.
+- Review scores are 1–5, recommendations are `accept` or `reject`, and a reviewer can submit at most one review per paper.
+- The Part 1 SQL schema defines a partial unique index allowing at most one corresponding author per paper.
 
 `seed.sql` - our seed/data used on Part 1.
 
@@ -34,3 +58,23 @@ Task 3 backend part is in `/backend` where each subdirectory has routers, models
 `router.py`'s include general functions
 `schemas.py`'s include I/O to/from the database
 `models`'s include general tables of the schema.
+
+## Running the course queries
+
+The task scripts use the Part 2 SQLModel schema and configured database. From the project root, activate the virtual environment if available and install dependencies if needed:
+
+```
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+
+```
+PYTHONPATH=. python task2/simple_queries.py
+PYTHONPATH=. python task2/complex_queries.py
+PYTHONPATH=. python task2/derived_attr.py
+PYTHONPATH=. python task2/view.py
+PYTHONPATH=. python task2/populating.py
+PYTHONPATH=. python task2/updating.py
+PYTHONPATH=. python task2/deleting.py
+```
