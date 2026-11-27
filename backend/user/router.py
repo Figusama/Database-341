@@ -1,187 +1,170 @@
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, status
-from sqlmodel import Session, select, insert, update, delete, func
-from database.database import get_session
-from backend.user.schemas import res_AppUser, CreateUser, PatchUser
-from backend.user.models import app_user, author, author_research_area, reviewer, reviewer_expertise
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from uuid import UUID, uuid4
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import delete
 from sqlalchemy.exc import IntegrityError
-router = APIRouter(tags=['app_user'])
+from sqlmodel import Session, select
+
+from backend.user.models import app_user, author, author_research_area, reviewer, reviewer_expertise
+from backend.user.schemas import UserCreate, UserListItem, UserOut, UserUpdate, AuthorIn, ReviewerIn
+from database.database import get_session
+
+router = APIRouter(prefix="/users", tags=["users"])
 
 
-@router.get("/app_user/read/{email}", response_model=res_AppUser)
-def read_user(email: str, session : Session = Depends(get_session)):
-    user : app_user | None = session.exec(
-        select(app_user).where(app_user.email == email)
-    ).first()
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"User with email '{email}' not found")
-
-    return res_AppUser(
-        user_id = user.user_id,
-        given_name=user.given_name,
-        surname=user.surname,
-        email=user.email,
-        affiliation=user.affiliation,
-        country=user.country,
-        phone_number=user.phone_number
-    )
-
-@router.get("/app_user/read/", response_model=list[res_AppUser])
-def read_users(limit : int = 100, offset : int = 0, session : Session = Depends(get_session)):
-    
-    users : app_user | None = session.exec(
-        select(app_user)
-    ).all()
-
-    if users is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"App User is empty")
-    return [
-        res_AppUser(
-            user_id=user.user_id,
-            given_name=user.given_name,
-            surname=user.surname,
-            email=user.email,
-            affiliation=user.affiliation,
-            country=user.country,
-            phone_number=user.phone_number,
-        )
-        for user in users
-    ]
-
-@router.post("/app_user/create/user", status_code=status.HTTP_200_OK)
-def create_user(data : CreateUser, session : Session = Depends(get_session)):
-
-    if data.reviewer is not None:
-        if data.reviewer.years_experience < 0:
-            raise HTTPException(
-                status_code=status.HTTP_411_LENGTH_REQUIRED,
-                detail = "years_experience cannot be negative"
-            )
-
-
-    user_id = session.exec(
-        insert(app_user).values(
-            given_name=data.given_name,
-            surname=data.surname,
-            email=data.email,
-            affiliation=data.affiliation,
-            country=data.country,
-            phone_number=data.phone_number,
-        ).returning(app_user.user_id)
-    ).scalar_one()
-    if data.author is not None:
-        session.exec(
-            insert(author).values(
-                author_id = user_id,
-                orcid=data.author.orcid
-            )
-        )
-        session.exec(
-            insert(author_research_area).values(
-                author_id = user_id,
-                area_label=data.author.area_label
-                )
-        )
-    if data.reviewer is not None:
-        session.exec(
-            insert(reviewer).values(
-                reviewer_id = user_id,
-                years_experience = data.reviewer.years_experience
-                )
-        )
-        session.exec(
-            insert(reviewer_expertise).values(
-                reviewer_id = user_id,
-                area_label=data.reviewer.area_label
-            )
-        )
-    session.commit()
-    return {"user_id": str(user_id)}
-
-@router.patch("/app_user/{email}")
-def patch_user(email: str, data: PatchUser, session: Session = Depends(get_session)):
-    user = session.exec(
-        select(app_user).where(func.lower(app_user.email) == email.strip().lower())
-    ).first()
-    if user is None:
+def _get_user(session: Session, user_id: UUID, lock: bool = False):
+    stmt = select(app_user).where(app_user.user_id == user_id)
+    if lock:
+        stmt = stmt.with_for_update()
+    u = session.exec(stmt).first()
+    if u is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    user_id = user.user_id
+    return u
 
-    updates = data.model_dump(exclude_unset=True, exclude={"author", "reviewer"})
-    if updates:
-        session.exec(update(app_user).where(app_user.user_id == user_id).values(**updates))
 
-    if "reviewer" in data.model_fields_set:  
-        if data.reviewer is None:              
-            session.exec(delete(reviewer).where(reviewer.reviewer_id == user_id))
-        else:
-            session.exec(
-                pg_insert(reviewer)
-                .values(reviewer_id=user_id, years_experience=data.reviewer.years_experience)
-                .on_conflict_do_update(
-                    index_elements=["reviewer_id"],
-                    set_={"years_experience": data.reviewer.years_experience})
-            )
+def user_out(session: Session, u) -> dict:
+    a = session.get(author, u.user_id)
+    r = session.get(reviewer, u.user_id)
+    author_data = None
+    if a is not None:
+        areas = session.exec(
+            select(author_research_area.area_label)
+            .where(author_research_area.author_id == u.user_id)
+            .order_by(author_research_area.area_label)).all()
+        author_data = {"orcid": a.orcid, "research_areas": list(areas)}
+    reviewer_data = None
+    if r is not None:
+        expertise = session.exec(
+            select(reviewer_expertise.area_label)
+            .where(reviewer_expertise.reviewer_id == u.user_id)
+            .order_by(reviewer_expertise.area_label)).all()
+        reviewer_data = {"years_experience": r.years_experience, "expertise": list(expertise)}
+    return {
+        "user_id": u.user_id, "given_name": u.given_name, "surname": u.surname, "email": u.email,
+        "affiliation": u.affiliation, "country": u.country, "phone_number": u.phone_number,
+        "author": author_data, "reviewer": reviewer_data,
+    }
 
-    if "author" in data.model_fields_set:
-        if data.author is None:
-            session.exec(delete(author).where(author.author_id == user_id))
-        else:
-            session.exec(
-                pg_insert(author)
-                .values(author_id=user_id, orcid=data.author.orcid)
-                .on_conflict_do_update(index_elements=["author_id"], set_={"orcid": data.author.orcid})
-            )
 
-    session.commit()
-    return {"email": data.email or user.email, "message": "User updated"}
+def _set_author(session: Session, user_id: UUID, data: AuthorIn) -> None:
+    a = session.get(author, user_id)
+    if a is None:
+        session.add(author(author_id=user_id, orcid=data.orcid))
+    else:
+        a.orcid = data.orcid
+    session.flush()
+    session.exec(delete(author_research_area).where(author_research_area.author_id == user_id))
+    for label in data.research_areas:
+        session.add(author_research_area(author_id=user_id, area_label=label))
+    session.flush()
 
-@router.delete("/app_user/{email}")
-def delete_user(email: str, session: Session = Depends(get_session)):
-    user = session.exec(
-        select(app_user).where(func.lower(app_user.email) == email.strip().lower())
-    ).first()
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    deleted_id = str(user.user_id)
+def _set_reviewer(session: Session, user_id: UUID, data: ReviewerIn) -> None:
+    r = session.get(reviewer, user_id)
+    if r is None:
+        session.add(reviewer(reviewer_id=user_id, years_experience=data.years_experience))
+    else:
+        r.years_experience = data.years_experience
+    session.flush()
+    session.exec(delete(reviewer_expertise).where(reviewer_expertise.reviewer_id == user_id))
+    for label in data.expertise:
+        session.add(reviewer_expertise(reviewer_id=user_id, area_label=label))
+    session.flush()
+
+
+def _commit(session: Session, conflict_detail: str) -> None:
     try:
-        session.delete(user)
         session.commit()
     except IntegrityError as exc:
         session.rollback()
-        table = getattr(getattr(exc.orig, "diag", None), "table_name", "another table")
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Cannot delete this user: they are still referenced by '{table}'. "
-                   "Remove those records first.",
-        )
-
-    return {"deleted": deleted_id, "email": email}
+        table = getattr(getattr(exc.orig, "diag", None), "table_name", None)
+        detail = conflict_detail if table is None else f"{conflict_detail} (referenced by '{table}')"
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
 
 
-@router.get("/authors")
-def list_authors(session : Session = Depends(get_session)):
-    rows = session.exec(
-        select(app_user).join(author, author.author_id == app_user.user_id).order_by(app_user.surname, app_user.given_name)
-    ).all()
+@router.get("", response_model=list[UserListItem], summary="List users")
+def list_users(session: Session = Depends(get_session)):
+    users = session.exec(select(app_user).order_by(app_user.surname, app_user.given_name)).all()
+    author_ids = set(session.exec(select(author.author_id)).all())
+    reviewer_ids = set(session.exec(select(reviewer.reviewer_id)).all())
     return [
-        {"author_id": a.user_id, "given_name": a.given_name, "surname": a.surname,
-        "email": a.email, "affiliation": a.affiliation, "country" : a.country,
-        "phone_number": a.phone_number
-        }
-        for a in rows
+        {"user_id": u.user_id, "given_name": u.given_name, "surname": u.surname, "email": u.email,
+         "is_author": u.user_id in author_ids, "is_reviewer": u.user_id in reviewer_ids}
+        for u in users
     ]
 
-@router.get("/reviewers")
-def list_reviewers(session : Session = Depends(get_session)):
-    rows = session.exec(
-        select(app_user).join(reviewer, reviewer.reviewer_id == app_user.user_id).order_by(app_user.surname, app_user.given_name)
-    ).all()
-    return [
-        {"reviewers_id": a.user_id, "given_name": a.given_name, "surname": a.surname,
-        "email": a.email, "affiliation": a.affiliation, "country" : a.country,
-        "phone_number": a.phone_number
-        }
-        for a in rows
-        ]
+@router.get("/{user_id}", response_model=UserOut, summary="Read one user with roles")
+def read_user(user_id: UUID, session: Session = Depends(get_session)):
+    return user_out(session, _get_user(session, user_id))
+
+
+@router.post("", response_model=UserOut, status_code=201, summary="Create a user")
+def create_user(body: UserCreate, session: Session = Depends(get_session)):
+    uid = uuid4()
+    session.add(app_user(
+        user_id=uid, given_name=body.given_name, surname=body.surname, email=body.email,
+        affiliation=body.affiliation, country=body.country, phone_number=body.phone_number))
+    try:
+        session.flush()
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A user with this email already exists.")
+    if body.author is not None:
+        _set_author(session, uid, body.author)
+    if body.reviewer is not None:
+        _set_reviewer(session, uid, body.reviewer)
+    _commit(session, "Could not create the user")
+    return user_out(session, _get_user(session, uid))
+
+
+@router.patch("/{user_id}", response_model=UserOut, summary="Update a user and their roles")
+def update_user(user_id: UUID, body: UserUpdate, session: Session = Depends(get_session)):
+    u = _get_user(session, user_id, lock=True)
+    fields = body.model_fields_set
+
+    for f in ("given_name", "surname", "email", "affiliation", "country", "phone_number"):
+        if f in fields:
+            setattr(u, f, getattr(body, f))
+    try:
+        session.flush()
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A user with this email already exists.")
+
+    will_be_author = body.author is not None if "author" in fields else session.get(author, user_id) is not None
+    will_be_reviewer = body.reviewer is not None if "reviewer" in fields else session.get(reviewer, user_id) is not None
+    if not will_be_author and not will_be_reviewer:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                            detail="A user must be an author, a reviewer, or both.")
+
+    try:
+        if "author" in fields:
+            if body.author is None:
+                session.exec(delete(author).where(author.author_id == user_id))
+                session.flush()
+            else:
+                _set_author(session, user_id, body.author)
+        if "reviewer" in fields:
+            if body.reviewer is None:
+                session.exec(delete(reviewer).where(reviewer.reviewer_id == user_id))
+                session.flush()
+            else:
+                _set_reviewer(session, user_id, body.reviewer)
+    except IntegrityError as exc:
+        session.rollback()
+        table = getattr(getattr(exc.orig, "diag", None), "table_name", "another table")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail=f"Cannot remove this role: it is still referenced by '{table}'.")
+
+    _commit(session, "Could not update the user")
+    session.expire_all()
+    return user_out(session, _get_user(session, user_id))
+
+
+@router.delete("/{user_id}", summary="Delete a user")
+def delete_user(user_id: UUID, session: Session = Depends(get_session)):
+    u = _get_user(session, user_id, lock=True)
+    session.delete(u)
+    _commit(session, "Cannot delete this user: they still have papers, reviews, or conference duties")
+    return {"deleted": str(user_id)}

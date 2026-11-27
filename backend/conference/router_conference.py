@@ -7,7 +7,7 @@ from backend.conference.models import conference
 
 router = APIRouter(tags=['conference'])
 
-@router.get("/conference")
+@router.get("/conferences")
 def list_conferences(session : Session = Depends(get_session)):
     rows = session.exec(
         select(conference).order_by(conference.acronym)

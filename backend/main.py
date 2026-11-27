@@ -5,6 +5,7 @@ from backend.paper.reviews_router import router as review
 from backend.conference.router import router as session
 from backend.track.router import router as track
 from backend.conference.router_conference import router as conference
+from fastapi.staticfiles import StaticFiles
 app = FastAPI()
 
 app.include_router(user)
@@ -13,3 +14,4 @@ app.include_router(review)
 app.include_router(conference)
 app.include_router(session)
 app.include_router(track)
+app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="frontend")
