@@ -8,7 +8,7 @@ from backend.conference.models import conference, conference_host, conference_re
 
 full_name = app_user.given_name + " " + app_user.surname
 
-
+#6.1
 query1 = (
     select(
         track.track_id,
@@ -24,7 +24,7 @@ query1 = (
     .order_by(track.track_id)
 )
 
-
+#6.2
 query2 = (
     select(
         reviewer.reviewer_id,
@@ -63,7 +63,7 @@ review_stats = (
     .group_by(track.conference_id)
     .subquery("review_stats")
 )
-
+#6.3
 query3 = (
     select(
         conference.conference_id,
@@ -93,7 +93,7 @@ reviewer_counts = (
 overall = select(
     func.avg(reviewer_counts.c.review_count).label("avg_reviews_per_reviewer")
 ).cte("overall")
-
+#6.4
 query4 = (
     select(
         reviewer_counts.c.reviewer_id,
