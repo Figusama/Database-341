@@ -26,6 +26,7 @@ To run them use:
 - For Mac `PYTHONPATH=. python task2/(python file name)`
     Example:
     `PYTHONPATH=. python task2/populating.py`
+- For Windows `$env:PYTHONPATH="."; python task2\<python_file_name>.py`
 
 The website for Task 3 is https://database-341.onrender.com
 

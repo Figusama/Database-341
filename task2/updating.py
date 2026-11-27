@@ -8,13 +8,27 @@ from backend.conference.models import conference, conference_host, conference_re
 from datetime import timedelta
 EMAIL = "arman.armanov@example.com"
 CITY = 'Astana'
-with engine.begin() as conn:
+with engine.connect() as conn:
     # 3.1
-    conn.execute(
-        update(app_user).where(app_user.email == EMAIL).values(phone_number='+77773414141')
-    )
+    before = conn.execute(
+        select(app_user).where(app_user.email == EMAIL)
+    ).first()
+
+    after = conn.execute(
+        update(app_user).where(app_user.email == EMAIL).values(phone_number='+77773414141').returning(app_user)
+    ).first()
+    print("BEFORE:", before)
+    print("AFTER:", after)
     # 3.2
-    conn.execute(
-        update(conference).values(review_deadline=conference.review_deadline + case((conference.city == CITY, timedelta(days=7)), else_=timedelta(days=3) ))
-    )
-    
+
+    before = conn.execute(
+        select(conference)
+    ).all()     
+    after = conn.execute(
+        update(conference).values(review_deadline=conference.review_deadline + case((conference.city == CITY, timedelta(days=7)), else_=timedelta(days=3) )).returning(conference)
+    ).all()
+
+    print("BEFORE:", before)
+    print("AFTER:", after)
+
+    conn.rollback()
