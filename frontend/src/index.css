@@ -1,0 +1,10 @@
+body { font-family: system-ui, sans-serif; margin: 20px; max-width: 1100px; background: #fff; color: #000; }
+nav { margin-bottom: 16px; display: flex; gap: 8px; }
+nav button.active { font-weight: bold; border: 2px solid #000; }
+.box { border: 1px solid #333; padding: 12px; margin-bottom: 16px; }
+.error { border: 2px solid #c00; background: #fee; padding: 8px; margin-bottom: 12px; }
+.ok { border: 2px solid #080; background: #efe; padding: 8px; margin-bottom: 12px; }
+label { display: block; margin: 6px 0; }
+input, select, textarea { margin-left: 6px; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #999; padding: 4px 6px; text-align: left; }
