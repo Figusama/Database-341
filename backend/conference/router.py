@@ -5,7 +5,7 @@ from sqlalchemy import update
 from sqlmodel import Session, select
 
 from backend.paper.checks import check_session_conference_change
-from backend.conference.models import conference_session
+from backend.conference.models import conference_session, conference
 
 from backend.paper.models import paper
 from backend.paper.schemas import SessionCreate, SessionOut, SessionUpdate

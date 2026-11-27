@@ -158,3 +158,30 @@ def delete_user(email: str, session: Session = Depends(get_session)):
         )
 
     return {"deleted": deleted_id, "email": email}
+
+
+@router.get("/authors")
+def list_authors(session : Session = Depends(get_session)):
+    rows = session.exec(
+        select(app_user).join(author, author.author_id == app_user.user_id).order_by(app_user.surname, app_user.given_name)
+    ).all()
+    return [
+        {"author_id": a.user_id, "given_name": a.given_name, "surname": a.surname,
+        "email": a.email, "affiliation": a.affiliation, "country" : a.country,
+        "phone_number": a.phone_number
+        }
+        for a in rows
+    ]
+
+@router.get("/reviewers")
+def list_reviewers(session : Session = Depends(get_session)):
+    rows = session.exec(
+        select(app_user).join(reviewer, reviewer.reviewer_id == app_user.user_id).order_by(app_user.surname, app_user.given_name)
+    ).all()
+    return [
+        {"reviewers_id": a.user_id, "given_name": a.given_name, "surname": a.surname,
+        "email": a.email, "affiliation": a.affiliation, "country" : a.country,
+        "phone_number": a.phone_number
+        }
+        for a in rows
+        ]
