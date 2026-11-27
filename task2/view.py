@@ -63,5 +63,6 @@ with engine.begin() as conn:
     conn.execute(text(create_view_sql))
     rows = conn.execute(query).all()
 
+print("\n8")
 for row in rows:
     print(row)

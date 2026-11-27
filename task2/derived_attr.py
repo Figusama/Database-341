@@ -30,6 +30,7 @@ query = (
 with engine.begin() as conn:
     rows = conn.execute(query).all()
 
+print("\n7")
 for row in rows:
     print(row)
 
