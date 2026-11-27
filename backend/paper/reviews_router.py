@@ -9,6 +9,7 @@ from backend.paper.models import paper, review
 from backend.paper.schemas import ReviewCreate, ReviewListItem, ReviewOut
 from backend.user.models import app_user
 from database.database import get_session
+from sqlalchemy.exc import IntegrityError
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
 
@@ -81,7 +82,11 @@ def create_review(body: ReviewCreate, session: Session = Depends(get_session)):
         recommendation=body.recommendation, comments_for_authors=body.comments_for_authors,
         confidential_comments=body.confidential_comments,
         review_submission_date=body.review_submission_date or date.today()))
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This review has already been reviewed")
     return review_out(_get_review(session, rid))
 
 
